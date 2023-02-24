@@ -1,7 +1,7 @@
 import React, {useContext, useEffect, useState} from 'react'
 import { ExperienceContext } from '../Contexts/ExperienceContext';
 
-import { Box, Flex, Text, Input } from "@chakra-ui/core";
+import { Box, Flex, Text, Input, Divider } from "@chakra-ui/core";
 import { addStyles, EditableMathField } from "react-mathquill";
 addStyles();
 
@@ -15,8 +15,11 @@ function Inputs() {
 
     const [isHovered, setIsHovered] = useState(false);
 
+    const [volume, setVolume] = useState(null);
+
     function visualize() {
         experience.experience.world.visualize(latexA, latexB, lowerBound, upperBound, cylinders);
+        setVolume(experience.experience.world.getVolume())
     }
 
     function handleLB(event) {
@@ -65,18 +68,19 @@ function Inputs() {
             <Flex marginLeft="10px" flexDirection={"column"} marginRight="10px">
                 <Text marginTop="0px">Bounds:</Text>
                 <Flex>
-                    <Input width="40px" value={lowerBound} onChange={handleLB} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" placeholder='Lower' fontSize="15px" marginRight="3px"/>
-                    <Input width="40px" value={upperBound} onChange={handleUB} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" placeholder='Upper' fontSize="15px"/>
+                    <Input width="20px" value={lowerBound} onChange={handleLB} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" placeholder='Lower' fontSize="15px" marginRight="3px"/>
+                    <Input width="20px" value={upperBound} onChange={handleUB} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" placeholder='Upper' fontSize="15px"/>
                 </Flex>
             </Flex>
             <Flex marginLeft="10px" flexDirection={"column"}>
                 <Text marginTop="0px">Num of Disks:</Text>
                 <Flex>
-                    <Input width="40px" value={cylinders} onChange={handleC} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" fontSize="15px" marginRight="3px"/>
+                    <Input width="20px" value={cylinders} onChange={handleC} height="30px" border="1px solid white" borderColor={"white"} color="white" borderRadius={"3px"} bg="transparent" fontSize="15px" marginRight="3px"/>
                 </Flex>
             </Flex>
             <Flex marginLeft="10px" flexDirection={"column"} padding="10px">
-                <button style={{width:"150px", height:"30px", backgroundColor:"teal", border: "1px solid white", borderRadius:"6px", cursor:"pointer", color:"white", fontSize:"14px"}} onClick={visualize}>Visualize</button>
+                <button style={{width:"180px", height:"30px", backgroundColor:"teal", border: "1px solid white", borderRadius:"6px", cursor:"pointer", color:"white", fontSize:"14px"}} onClick={visualize}>Visualize</button>
+                <Text paddingTop={"20px"} borderTop="1px solid white">Volume: {volume}</Text>
             </Flex>
         </Box>
     )

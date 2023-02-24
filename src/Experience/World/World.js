@@ -1,6 +1,3 @@
-import nerdamer, { set } from 'nerdamer';
-import 'nerdamer/Solve';
-
 import * as THREE from 'three';
 import Experience from "../Experience";
 import { CSG } from 'three-csg-ts'
@@ -24,15 +21,40 @@ export default class World {
         this.canvasReady = false;
 
         this.shapes = [];
+        this.lights = [];
     
         this.latexes = [];
 
         this.lines = [];
+
+        this.mat = 0;
+        this.volume = 0;
+
+
+        this.LB = 0;
+        this.UB = 0;
+        this.C = 0;
+    }
+
+    toggleMat(mat) {
+        this.mat = mat;
+        console.log(this.mat);
+        if (this.latexes.length > 0) {
+            try {
+                this.makeShape(this.LB, this.UB, this.C)
+            } catch(error) {
+                console.log(error)
+            }
+        }
     }
 
     update() {
         if (this.experience.renderer.instance && this.canvasReady == false) {
             this.canvasReady = true
+        }
+
+        for (let i=0; i<this.shapes.length; i++) {
+            this.shapes[i].shape.rotateY(this.shapes[i].rot)
         }
     }
 
@@ -40,13 +62,21 @@ export default class World {
         this.latexes = [];
 
         if (latexA) this.latexes.push(latexA)
-        if (latexB) this.latexes.push(latexB)
+        if (latexB) {
+            this.latexes.push(latexB)
+        } else {
+            this.latexes.push("0");
+        }
+
+        this.LB = lowerBound
+        this.UB = upperBound
+        this.C = cylinders
 
         if (this.latexes.length > 0) {
             try {
-                this.graphLines(lowerBound, upperBound)
+                this.graphLines(this.LB, this.UB)
                 
-                this.makeShape(lowerBound, upperBound, cylinders)
+                this.makeShape(this.LB, this.UB, this.C)
             } catch(error) {
                 console.log(error)
             }
@@ -79,43 +109,6 @@ export default class World {
         }
     }
 
-    makeSections(lowerBound, upperBound, cylinders) {
-        let parsed1 = nerdamer.convertFromLaTeX(this.latexes[0])
-        let parsed2 = nerdamer.convertFromLaTeX(this.latexes[1])
-
-        let equation = `${parsed1} - (${parsed2})`
-
-        nerdamer.set('SOLUTIONS_AS_OBJECT', true)
-        let solutions = nerdamer.solveEquations(equation,'x');
-
-        let intersects = [upperBound];
-        
-        for (const sol in solutions) {
-            let val = solutions[sol].multiplier.num/solutions[sol].multiplier.den
-            if (val > lowerBound && val < upperBound) {
-                let allowed = true;
-
-                for (let i=0; i<intersects.length; i++) {
-                    if (Math.abs(intersects[i] - val) < (upperBound-lowerBound)/cylinders) {
-                        allowed = false;
-                    }
-                }
-               
-                if (allowed) intersects.push(val);
-            }
-        }
-
-        let sections = [];
-
-        let start = lowerBound;
-        for (let i=0; i<intersects.length; i++) {
-            sections.push({start, end: intersects[i]})
-            start = intersects[i];
-        }
-
-        console.log(sections)
-    }
-
     upperLower(x) {
         let val1 = Math.abs(evaluateTex(this.latexes[0], {x:x}).evaluated)
         let val2 = Math.abs(evaluateTex(this.latexes[1], {x:x}).evaluated)
@@ -128,14 +121,29 @@ export default class World {
     }
 
     makeShape(lowerBound, upperBound, cylinders) {
-        const material = new THREE.MeshBasicMaterial( {color: 0x9a8c98, transparent: true, wireframe: true, opacity: 0.7} );
+        this.volume = 0;
+
+        let material;
+
+        if (this.mat == 0) {
+            material = new THREE.MeshStandardMaterial( {color: 0x9a8c98} );
+        } else {
+            material = new THREE.MeshBasicMaterial( {color: 0x9a8c98, transparent: true, wireframe: true, opacity: 0.7} );
+        }   
+
         let height = (upperBound-lowerBound)/cylinders
 
         for (let i=0; i<this.shapes.length; i++) {
-            this.scene.remove(this.shapes[i]);
+            this.scene.remove(this.shapes[i].shape);
+        }
+
+        for (let i=0; i<this.lights.length; i++) {
+            this.scene.remove(this.lights[i])
         }
 
         this.shapes = [];
+        this.lights = [];
+        let index = 0;
 
         for (let i=lowerBound; i<=upperBound; i+=height) {
             if (i != lowerBound) {
@@ -150,7 +158,6 @@ export default class World {
                 let geometryL = new THREE.CylinderGeometry( radiusL, radiusL, height, 24 );
                 let cylinderL = new THREE.Mesh( geometryL, material );
 
-
                 const upperCSG = CSG.fromMesh(cylinderU);
                 const lowerCSG = CSG.fromMesh(cylinderL);
 
@@ -163,10 +170,38 @@ export default class World {
                 result.position.z += (height/2) + i-height;
                 result.material = material;
 
-                this.shapes.push(result)
-                this.scene.add(result);
+                this.volume += Math.PI * Math.pow(radiusU,2) * height
+                this.volume -= Math.PI * Math.pow(radiusL,2) * height
+                
+                let rot = 0;
+                if (this.mat == 2) {
+                    rot = 1/radiusU * 0.003
+                    if (index % 2 == 0) rot *= -1
+                }
 
+                this.shapes.push({shape: result, rot});
+                this.scene.add(result);
+                index++;
             }
         }
+
+        if (this.mat == 0) {
+            const directionLight1 = new THREE.DirectionalLight(0xffffff, 1.5) //color, intensity
+            directionLight1.position.set(-14.182411522639413,7.66174323813831, 8);
+            directionLight1.lookAt(this.shapes[0].shape);
+
+            const directionLight2 = new THREE.DirectionalLight(0xffffff, 1.5) //color, intensity
+            directionLight2.position.set(14.182411522639413,7.66174323813831, -3.59387172383304);
+            directionLight2.lookAt(this.shapes[0].shape);
+            this.lights.push(directionLight1);
+            this.scene.add(directionLight1); 
+            this.lights.push(directionLight2);
+            this.scene.add(directionLight2); 
+        }
+        
+    }
+
+    getVolume() {
+        return Math.floor(this.volume*100)/100;
     }
 }
